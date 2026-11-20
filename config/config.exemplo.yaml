@@ -1,0 +1,107 @@
+# =============================================================================
+# Auditoria RT - configuração
+# Copie para config/config.yaml e ajuste. Valores ${VAR} são lidos de variáveis
+# de ambiente (use para senhas; nunca grave credenciais neste arquivo).
+# Pontos marcados com  >>> CONEXÃO  são os que precisam ser preenchidos no
+# ambiente interno.
+# =============================================================================
+
+workspace:
+  diretorio: ./workdir           # dados intermediários, cache, banco DuckDB e saídas
+  duckdb_threads: 8              # threads do DuckDB nas regras/relatórios
+  duckdb_memoria: 16GB           # limite de memória do DuckDB
+
+# -----------------------------------------------------------------------------
+# Extração do SAP
+# -----------------------------------------------------------------------------
+extracao:
+  paralelismo: 4                 # dias extraídos em paralelo (1 conexão por dia)
+  linhas_por_lote: 5000          # fetchmany
+  linhas_por_arquivo: 50000      # tamanho máximo de cada parquet bruto
+
+  fontes:
+    # >>> CONEXÃO: uma entrada por tabela/visão de XML (ex.: entradas e saídas)
+    - nome: nfe_saida
+      tipo: hana                   # hana | odbc | arquivos
+      conexao:
+        host: ${SAP_HANA_HOST}
+        porta: ${SAP_HANA_PORT}
+        usuario: ${SAP_HANA_USER}
+        senha: ${SAP_HANA_PASSWORD}
+        criptografar: true
+        validar_certificado: true
+        # odbc_dsn: "DSN=VIRTUALIZACAO;UID=...;PWD=..."   # apenas tipo odbc
+      tabela: '"ESQUEMA"."TABELA_XML_NFE"'   # >>> CONEXÃO: nome real (com aspas se tiver /)
+      colunas:
+        chave: CHAVE_ACESSO          # >>> CONEXÃO: chave de 44 dígitos
+        data: DATA_EMISSAO           # >>> CONEXÃO: coluna de data usada no particionamento
+        xml: XML_CONTEUDO            # >>> CONEXÃO: coluna com o XML (CLOB/NCLOB/BLOB)
+        sequencia: null              # se o XML vier quebrado em várias linhas, informe a coluna de ordem
+      formato_data: date           # date | dats (AAAAMMDD texto) | timestamp_dec (AAAAMMDDhhmmss)
+      codificacao_xml: auto        # auto | texto | base64 | gzip | zlib
+      filtro_extra: null           # SQL adicional, ex.: "AND STATUS = '100'" (apenas autorizadas)
+
+    # Exemplo de fonte por arquivos (exportações, testes de bancada)
+    # - nome: amostra_arquivos
+    #   tipo: arquivos
+    #   diretorio: ./dados/xml
+
+# -----------------------------------------------------------------------------
+# Calculadora da Receita (instância local, sem internet)
+# -----------------------------------------------------------------------------
+calculadora:
+  modo: http                     # http (calculadora RFB local) | tabela (alíquotas de referência, sem calculadora)
+  url_base: http://localhost:8080          # >>> CONEXÃO: onde a calculadora foi publicada internamente
+  endpoint_calculo: /api/calculadora/regime-geral   # >>> CONEXÃO: conferir no código liberado
+  endpoint_versao: null                    # opcional: endpoint que devolve a versão
+  versao: "AJUSTAR"              # >>> CONEXÃO: versão da calculadora/tabelas (vai para o relatório)
+  timeout_s: 60
+  tentativas: 3
+  workers: 16                    # requisições simultâneas
+  itens_por_requisicao: 100
+  granularidade_data: mes        # dia | mes  (chave de cache das alíquotas)
+  verificar_tls: true
+  cabecalhos: {}                 # ex.: {Authorization: "Bearer ${TOKEN_CALC}"}
+
+# Amostra de validação: recalcula itens reais completos na calculadora e confere
+# o atalho vetorizado (regra C007).
+amostra:
+  tamanho: 2000
+  semente: 42
+
+# -----------------------------------------------------------------------------
+# Tabelas de referência (versionadas; o hash vai para o relatório)
+# -----------------------------------------------------------------------------
+referencias:
+  classificacao_tributaria: ./config/referencia/classificacao_tributaria.csv
+  aliquotas: ./config/referencia/aliquotas_referencia.csv
+  matriz_expectativa: ./config/referencia/matriz_expectativa.csv
+
+# -----------------------------------------------------------------------------
+# Parâmetros das regras
+# -----------------------------------------------------------------------------
+regras:
+  tolerancia_abs: 0.01           # R$ - definido com a Auditoria Interna
+  tolerancia_rel: 0.0            # fração do valor esperado (ex.: 0.001 = 0,1%)
+  tolerancia_aliquota: 0.0001    # pontos percentuais
+  ibscbs_obrigatorio_desde: "2026-01-01"
+  # Composição da base de cálculo (R014). VALIDAR COM O TRIBUTÁRIO.
+  base_calculo:
+    v_prod: 1
+    v_frete: 1
+    v_seg: 1
+    v_outro: 1
+    v_desc: -1
+    v_icms: -1
+    v_pis: -1
+    v_cofins: -1
+    v_ipi: 0
+  padroes:
+    min_itens_ncm: 50            # P001: só avalia NCM com volume mínimo
+    limiar_minoritario: 0.02     # P001: combinação usada em < 2% dos itens do NCM
+  desabilitadas: []              # ex.: [P002]
+  severidade: {}                 # sobrescreve severidade, ex.: {R014: BAIXA}
+
+relatorio:
+  max_linhas_detalhe: 200000     # aba de detalhe do Excel (o detalhe completo sai em parquet/CSV)
+  exportar_csv: true

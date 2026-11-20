@@ -1,0 +1,16 @@
+# Dependências de execução
+duckdb>=1.1
+pyarrow>=15
+lxml>=5
+xlsxwriter>=3.1
+pyyaml>=6
+requests>=2.31
+
+# Conector SAP HANA (driver oficial SAP). Comente se usar ODBC.
+hdbcli>=2.19
+# Conector ODBC (camada de virtualização: Denodo, SDA, etc.). Opcional.
+# pyodbc>=5
+
+# Desenvolvimento / testes
+pytest>=8
+openpyxl>=3.1

@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "auditoria-rt"
+version = "0.1.0"
+description = "Auditoria em lote da aderência de NF-e às regras de IBS/CBS/IS (Reforma Tributária)"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "duckdb>=1.1",
+    "pyarrow>=15",
+    "lxml>=5",
+    "xlsxwriter>=3.1",
+    "pyyaml>=6",
+    "requests>=2.31",
+]
+
+[project.optional-dependencies]
+hana = ["hdbcli>=2.19"]
+odbc = ["pyodbc>=5"]
+dev = ["pytest>=8", "openpyxl>=3.1"]
+
+[project.scripts]
+auditoria-rt = "auditoria_rt.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

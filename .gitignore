@@ -1,0 +1,21 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+build/
+dist/
+wheels/
+
+# Configuração real e dados (nunca versionar dados fiscais)
+config/config.yaml
+.env
+workdir/
+dados/
+*.duckdb
+*.duckdb.wal
+*.parquet
+*.xlsx
+saidas/
+logs/
